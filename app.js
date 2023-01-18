@@ -1,6 +1,6 @@
 const express = require("express");
 const bodyParser = require("body-parser");
-const date = require(`${__dirname}/date.js`);
+const _ = require("lodash");
 
 const mongoose = require("mongoose");
 mongoose.set("strictQuery", false);
@@ -12,6 +12,11 @@ mongoose.connect(mongoURL);
 const itemsSchema = new mongoose.Schema({
 	name: String,
 });
+const listSchema = new mongoose.Schema({
+	name: String,
+	items: [itemsSchema],
+});
+const List = mongoose.model("List", listSchema);
 const Item = mongoose.model("Item", itemsSchema);
 const item1 = new Item({
 	name: "Welcome to your ToDo List!",
@@ -30,7 +35,7 @@ app.use(express.static("public"));
 app.set("view engine", "ejs");
 
 app.get("/", (req, res) => {
-	let day = date();
+	let day = "Today";
 	Item.find({}, (err, items) => {
 		if (items.length === 0) {
 			Item.insertMany(defaultItems, (err) => {
@@ -47,28 +52,72 @@ app.get("/", (req, res) => {
 	});
 });
 
-app.post("/", (req, res) => {
-	const itemName = req.body.newItem;
-	const item = new Item({
-		name: itemName,
-	});
-	item.save();
-	console.log("Successfully added database entry.");
-	res.redirect("/");
-});
-
-app.post("/delete", (req, res) => {
-	const checkedItemId = req.body.checkbox;
-	Item.findByIdAndRemove(checkedItemId, (err) => {
+app.get("/:newListName", (req, res) => {
+	const newListName = _.capitalize(req.params.newListName);
+	List.findOne({ name: newListName }, (err, foundItem) => {
 		if (!err) {
-			console.log("Successfully deleted database entry.");
-			res.redirect("/");
+			if (!foundItem) {
+				//Create new list
+				const list = new List({
+					name: newListName,
+					items: defaultItems,
+				});
+				list.save();
+				res.redirect(`/${newListName}`);
+			} else {
+				//Show existing list
+				res.render("list", {
+					listTitle: foundItem.name,
+					newListItems: foundItem.items,
+				});
+			}
+		} else {
+			console.log(err);
 		}
 	});
 });
 
-app.get("/work", (req, res) => {
-	res.render("list", { listTitle: "Work List", newListItems: workItems });
+app.post("/", (req, res) => {
+	const itemName = req.body.newItem;
+	const listName = req.body.list;
+	const item = new Item({
+		name: itemName,
+	});
+	if (listName === "Today") {
+		item.save();
+		console.log("Successfully added database entry.");
+		res.redirect("/");
+	} else {
+		List.findOne({ name: listName }, (err, foundList) => {
+			foundList.items.push(item);
+			foundList.save();
+			res.redirect(`/${listName}`);
+		});
+	}
+});
+
+app.post("/delete", (req, res) => {
+	const checkedItemId = req.body.checkbox;
+	const listName = req.body.listName;
+
+	if (listName === "Today") {
+		Item.findByIdAndRemove(checkedItemId, (err) => {
+			if (!err) {
+				console.log("Successfully deleted database entry.");
+				res.redirect("/");
+			}
+		});
+	} else {
+		List.findOneAndUpdate(
+			{ name: listName },
+			{ $pull: { items: { _id: checkedItemId } } },
+			(err, foundList) => {
+				if (!err) {
+					res.redirect(`/${listName}`);
+				}
+			}
+		);
+	}
 });
 
 app.listen(process.env.PORT || 3000, () => {
