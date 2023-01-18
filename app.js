@@ -53,6 +53,7 @@ app.post("/", (req, res) => {
 		name: itemName,
 	});
 	item.save();
+	console.log("Successfully added database entry.");
 	res.redirect("/");
 });
 
