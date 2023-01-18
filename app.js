@@ -6,7 +6,7 @@ const mongoose = require("mongoose");
 mongoose.set("strictQuery", false);
 
 const db = "todolistDB";
-const mongoURL = `mongodb+srv://xcarter93:ISXi7JvzRagD6Ub3@cluster0.jwhx2lt.mongodb.net/${db}?retryWrites=true&w=majority`;
+const mongoURL = `mongodb+srv://xcarter93:ISXi7JvzRagD6Ub3@cluster0.jwhx2lt.mongodb.net/${db}`;
 mongoose.connect(mongoURL);
 
 const itemsSchema = new mongoose.Schema({
